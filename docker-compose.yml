@@ -1,0 +1,154 @@
+services:
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: stockwise
+      MYSQL_USER: stockwise
+      MYSQL_PASSWORD: stockwise_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-proot_password"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - stockwise-net
+
+  product-api:
+    build:
+      context: ./product-api
+    environment:
+      DB_HOST: db
+      DB_USER: stockwise
+      DB_PASSWORD: stockwise_password
+      DB_NAME: stockwise
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - stockwise-net
+
+  inventory-api:
+    build:
+      context: ./inventory-api
+    environment:
+      DB_HOST: db
+      DB_USER: stockwise
+      DB_PASSWORD: stockwise_password
+      DB_NAME: stockwise
+      PORT: 3002
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - stockwise-net
+
+  sales-api:
+    build:
+      context: ./sales-api
+    environment:
+      DB_HOST: db
+      DB_USER: stockwise
+      DB_PASSWORD: stockwise_password
+      DB_NAME: stockwise
+      PORT: 3003
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3003/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - stockwise-net
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      product-api:
+        condition: service_healthy
+      inventory-api:
+        condition: service_healthy
+      sales-api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - stockwise-net
+
+  proxy:
+    build:
+      context: ./proxy
+    depends_on:
+      frontend:
+        condition: service_started
+      product-api:
+        condition: service_healthy
+      inventory-api:
+        condition: service_healthy
+      sales-api:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - stockwise-net
+
+volumes:
+  mysql_data:
+
+networks:
+  stockwise-net:
+    driver: bridge
