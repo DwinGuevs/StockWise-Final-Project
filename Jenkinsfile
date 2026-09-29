@@ -28,25 +28,13 @@ pipeline {
           set -e
 
           echo "===== Testing Product API ====="
-          docker run --rm \
-            -v "$WORKSPACE:/workspace" \
-            -w /workspace/product-api \
-            node:22-alpine \
-            sh -c "npm install && npm test"
+          docker build --target test -t stockwise/product-api:test ./product-api
 
           echo "===== Testing Inventory API ====="
-          docker run --rm \
-            -v "$WORKSPACE:/workspace" \
-            -w /workspace/inventory-api \
-            node:22-alpine \
-            sh -c "npm install && npm test"
+          docker build --target test -t stockwise/inventory-api:test ./inventory-api
 
           echo "===== Testing Sales API ====="
-          docker run --rm \
-            -v "$WORKSPACE:/workspace" \
-            -w /workspace/sales-api \
-            node:22-alpine \
-            sh -c "npm install && npm test"
+          docker build --target test -t stockwise/sales-api:test ./sales-api
 
           echo "===== ALL TESTS PASSED ====="
         '''
